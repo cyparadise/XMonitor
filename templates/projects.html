@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>项目管理 - XMonitor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">XMonitor</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">首页</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/projects">项目管理</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/tweets">推文历史</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <h1>项目管理</h1>
+                <p class="lead">管理监控的加密货币项目</p>
+            </div>
+            <div class="col-md-6 text-end">
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addProjectModal">
+                    <i class="bi bi-plus-circle"></i> 添加项目
+                </button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>项目名称</th>
+                                <th>代币符号</th>
+                                <th>Twitter账号</th>
+                                <th>描述</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="projects-tbody">
+                            {% for project in projects %}
+                            <tr>
+                                <td>{{ project.name }}</td>
+                                <td>{{ project.token_symbol }}</td>
+                                <td>@{{ project.twitter_username }}</td>
+                                <td>{{ project.description }}</td>
+                                <td>
+                                    {% if project.active %}
+                                    <span class="badge bg-success">已激活</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">已禁用</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-info edit-project" data-project-id="{{ project._id }}">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-danger delete-project" data-project-id="{{ project._id }}">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                    <a href="/tweets?project_id={{ project._id }}" class="btn btn-sm btn-secondary">
+                                        <i class="bi bi-twitter"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加项目模态框 -->
+    <div class="modal fade" id="addProjectModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">添加项目</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addProjectForm">
+                        <div class="mb-3">
+                            <label for="projectName" class="form-label">项目名称</label>
+                            <input type="text" class="form-control" id="projectName" name="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="tokenSymbol" class="form-label">代币符号</label>
+                            <input type="text" class="form-control" id="tokenSymbol" name="token_symbol" required>
+                            <div class="form-text">例如：BTC, ETH, ZRO等</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="twitterUsername" class="form-label">Twitter用户名</label>
+                            <div class="input-group">
+                                <span class="input-group-text">@</span>
+                                <input type="text" class="form-control" id="twitterUsername" name="twitter_username" required>
+                            </div>
+                            <div class="form-text">不含@符号的用户名</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">描述</label>
+                            <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="submitAddProject">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑项目模态框 -->
+    <div class="modal fade" id="editProjectModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">编辑项目</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editProjectForm">
+                        <input type="hidden" id="editProjectId" name="project_id">
+                        <div class="mb-3">
+                            <label for="editProjectName" class="form-label">项目名称</label>
+                            <input type="text" class="form-control" id="editProjectName" name="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editTokenSymbol" class="form-label">代币符号</label>
+                            <input type="text" class="form-control" id="editTokenSymbol" name="token_symbol" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editTwitterUsername" class="form-label">Twitter用户名</label>
+                            <div class="input-group">
+                                <span class="input-group-text">@</span>
+                                <input type="text" class="form-control" id="editTwitterUsername" name="twitter_username" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editDescription" class="form-label">描述</label>
+                            <textarea class="form-control" id="editDescription" name="description" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="editActive" name="active">
+                            <label class="form-check-label" for="editActive">激活监控</label>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="submitEditProject">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除确认模态框 -->
+    <div class="modal fade" id="deleteProjectModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">确认删除</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>确定要删除该项目吗？这将同时删除与该项目相关的所有推文数据，此操作不可恢复。</p>
+                    <input type="hidden" id="deleteProjectId">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteProject">删除</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-dark text-white mt-5 py-3">
+        <div class="container text-center">
+            <p>XMonitor &copy; 2023 - 加密货币项目推文监控与AI分析系统</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 添加项目
+        document.getElementById('submitAddProject').addEventListener('click', function() {
+            const form = document.getElementById('addProjectForm');
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+            
+            fetch('/api/projects', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('项目添加成功');
+                    location.reload();
+                } else {
+                    alert('项目添加失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('添加失败，请检查网络连接');
+            });
+        });
+
+        // 编辑项目 - 打开模态框并填充数据
+        document.querySelectorAll('.edit-project').forEach(button => {
+            button.addEventListener('click', function() {
+                const projectId = this.getAttribute('data-project-id');
+                
+                // 从当前行获取项目数据
+                const row = this.closest('tr');
+                const name = row.cells[0].textContent;
+                const tokenSymbol = row.cells[1].textContent;
+                const twitterUsername = row.cells[2].textContent.substring(1); // 去掉@符号
+                const description = row.cells[3].textContent;
+                const active = row.cells[4].querySelector('.badge').classList.contains('bg-success');
+                
+                // 填充表单
+                document.getElementById('editProjectId').value = projectId;
+                document.getElementById('editProjectName').value = name;
+                document.getElementById('editTokenSymbol').value = tokenSymbol;
+                document.getElementById('editTwitterUsername').value = twitterUsername;
+                document.getElementById('editDescription').value = description;
+                document.getElementById('editActive').checked = active;
+                
+                // 显示模态框
+                const modal = new bootstrap.Modal(document.getElementById('editProjectModal'));
+                modal.show();
+            });
+        });
+
+        // 提交编辑项目
+        document.getElementById('submitEditProject').addEventListener('click', function() {
+            const projectId = document.getElementById('editProjectId').value;
+            const form = document.getElementById('editProjectForm');
+            const formData = new FormData(form);
+            
+            // 处理复选框
+            formData.set('active', document.getElementById('editActive').checked);
+            
+            const data = Object.fromEntries(formData.entries());
+            
+            fetch(`/api/projects/${projectId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('项目更新成功');
+                    location.reload();
+                } else {
+                    alert('项目更新失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('更新失败，请检查网络连接');
+            });
+        });
+
+        // 删除项目 - 显示确认对话框
+        document.querySelectorAll('.delete-project').forEach(button => {
+            button.addEventListener('click', function() {
+                const projectId = this.getAttribute('data-project-id');
+                document.getElementById('deleteProjectId').value = projectId;
+                
+                const modal = new bootstrap.Modal(document.getElementById('deleteProjectModal'));
+                modal.show();
+            });
+        });
+
+        // 确认删除项目
+        document.getElementById('confirmDeleteProject').addEventListener('click', function() {
+            const projectId = document.getElementById('deleteProjectId').value;
+            
+            fetch(`/api/projects/${projectId}`, {
+                method: 'DELETE',
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('项目删除成功');
+                    location.reload();
+                } else {
+                    alert('项目删除失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('删除失败，请检查网络连接');
+            });
+        });
+    </script>
+</body>
+</html> 

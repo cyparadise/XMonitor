@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>推文历史 - XMonitor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">XMonitor</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">首页</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/projects">项目管理</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/tweets">推文历史</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <h1>推文历史</h1>
+                <p class="lead">查看历史推文及AI分析结果</p>
+            </div>
+            <div class="col-md-6">
+                <form class="d-flex" id="filterForm">
+                    <select class="form-select me-2" id="projectFilter" name="project_id">
+                        <option value="">所有项目</option>
+                        {% for project in projects %}
+                        <option value="{{ project._id }}" {% if project._id == selected_project %}selected{% endif %}>
+                            {{ project.name }} ({{ project.token_symbol }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <select class="form-select me-2" id="impactFilter" name="impact_level">
+                        <option value="">所有影响等级</option>
+                        <option value="Extremely Bullish">极度看涨</option>
+                        <option value="Bullish">看涨</option>
+                        <option value="Non-Significant">无显著影响</option>
+                        <option value="Bearish">看跌</option>
+                        <option value="Extremely Bearish">极度看跌</option>
+                    </select>
+                    <button class="btn btn-primary" type="submit">筛选</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>时间</th>
+                                <th>项目</th>
+                                <th>推文内容</th>
+                                <th>影响等级</th>
+                                <th>预期波动</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tweets-tbody">
+                            {% for tweet in tweets %}
+                            <tr>
+                                <td>{{ tweet.created_at }}</td>
+                                <td>{{ tweet.token_symbol }}</td>
+                                <td>{{ tweet.text[:100] }}{% if tweet.text|length > 100 %}...{% endif %}</td>
+                                <td>
+                                    {% if tweet.analysis.impact_level == "Extremely Bullish" %}
+                                    <span class="badge bg-success">极度看涨</span>
+                                    {% elif tweet.analysis.impact_level == "Bullish" %}
+                                    <span class="badge bg-success">看涨</span>
+                                    {% elif tweet.analysis.impact_level == "Non-Significant" %}
+                                    <span class="badge bg-secondary">无显著影响</span>
+                                    {% elif tweet.analysis.impact_level == "Bearish" %}
+                                    <span class="badge bg-danger">看跌</span>
+                                    {% elif tweet.analysis.impact_level == "Extremely Bearish" %}
+                                    <span class="badge bg-danger">极度看跌</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{{ tweet.analysis.impact_level }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ tweet.analysis.expected_volatility }}</td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-primary view-tweet" data-tweet-id="{{ tweet._id }}">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    <a href="https://twitter.com/{{ tweet.twitter_username }}/status/{{ tweet.tweet_id }}" target="_blank" class="btn btn-sm btn-secondary">
+                                        <i class="bi bi-twitter"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 查看推文详情模态框 -->
+    <div class="modal fade" id="tweetDetailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">推文详情</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <h6>项目</h6>
+                        <p id="detailProject"></p>
+                    </div>
+                    <div class="mb-3">
+                        <h6>Twitter账号</h6>
+                        <p id="detailTwitter"></p>
+                    </div>
+                    <div class="mb-3">
+                        <h6>发布时间</h6>
+                        <p id="detailTime"></p>
+                    </div>
+                    <div class="mb-3">
+                        <h6>推文内容</h6>
+                        <p id="detailContent"></p>
+                    </div>
+                    <hr>
+                    <div class="mb-3">
+                        <h6>AI分析结果</h6>
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="mb-2">
+                                    <strong>事件类型:</strong> <span id="detailEventType"></span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>影响等级:</strong> <span id="detailImpactLevel"></span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>预期波动:</strong> <span id="detailVolatility"></span>
+                                </div>
+                                <div class="mb-3">
+                                    <strong>关键因素:</strong>
+                                    <ul id="detailKeyFactors"></ul>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>历史参照:</strong>
+                                    <p id="detailHistorical"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <a id="tweetOriginalLink" href="#" target="_blank" class="btn btn-primary">查看原文</a>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-dark text-white mt-5 py-3">
+        <div class="container text-center">
+            <p>XMonitor &copy; 2023 - 加密货币项目推文监控与AI分析系统</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 项目筛选表单提交
+        document.getElementById('filterForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const projectId = document.getElementById('projectFilter').value;
+            const impactLevel = document.getElementById('impactFilter').value;
+            
+            let url = '/tweets?';
+            if (projectId) url += `project_id=${projectId}&`;
+            if (impactLevel) url += `impact_level=${encodeURIComponent(impactLevel)}&`;
+            
+            window.location.href = url;
+        });
+
+        // 查看推文详情
+        document.querySelectorAll('.view-tweet').forEach(button => {
+            button.addEventListener('click', function() {
+                const tweetId = this.getAttribute('data-tweet-id');
+                
+                fetch(`/api/tweets/${tweetId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            const tweet = data.tweet;
+                            
+                            // 填充模态框内容
+                            document.getElementById('detailProject').textContent = `${tweet.token_symbol}`;
+                            document.getElementById('detailTwitter').textContent = `@${tweet.twitter_username}`;
+                            document.getElementById('detailTime').textContent = tweet.created_at;
+                            document.getElementById('detailContent').textContent = tweet.text;
+                            
+                            // 填充分析结果
+                            const analysis = tweet.analysis || {};
+                            document.getElementById('detailEventType').textContent = analysis.event_type || '未分析';
+                            
+                            // 设置影响等级徽章
+                            let impactBadge = '';
+                            if (analysis.impact_level === 'Extremely Bullish') {
+                                impactBadge = '<span class="badge bg-success">极度看涨</span>';
+                            } else if (analysis.impact_level === 'Bullish') {
+                                impactBadge = '<span class="badge bg-success">看涨</span>';
+                            } else if (analysis.impact_level === 'Non-Significant') {
+                                impactBadge = '<span class="badge bg-secondary">无显著影响</span>';
+                            } else if (analysis.impact_level === 'Bearish') {
+                                impactBadge = '<span class="badge bg-danger">看跌</span>';
+                            } else if (analysis.impact_level === 'Extremely Bearish') {
+                                impactBadge = '<span class="badge bg-danger">极度看跌</span>';
+                            } else {
+                                impactBadge = `<span class="badge bg-secondary">${analysis.impact_level || '未分析'}</span>`;
+                            }
+                            document.getElementById('detailImpactLevel').innerHTML = impactBadge;
+                            
+                            document.getElementById('detailVolatility').textContent = analysis.expected_volatility || '未分析';
+                            
+                            // 填充关键因素列表
+                            const keyFactorsList = document.getElementById('detailKeyFactors');
+                            keyFactorsList.innerHTML = '';
+                            if (analysis.key_factors && analysis.key_factors.length > 0) {
+                                analysis.key_factors.forEach(factor => {
+                                    const li = document.createElement('li');
+                                    li.textContent = factor;
+                                    keyFactorsList.appendChild(li);
+                                });
+                            } else {
+                                const li = document.createElement('li');
+                                li.textContent = '无关键因素';
+                                keyFactorsList.appendChild(li);
+                            }
+                            
+                            document.getElementById('detailHistorical').textContent = analysis.historical_reference || '无历史参照';
+                            
+                            // 设置原文链接
+                            const originalLink = document.getElementById('tweetOriginalLink');
+                            originalLink.href = `https://twitter.com/${tweet.twitter_username}/status/${tweet.tweet_id}`;
+                            
+                            // 显示模态框
+                            const modal = new bootstrap.Modal(document.getElementById('tweetDetailModal'));
+                            modal.show();
+                        } else {
+                            alert('获取推文详情失败: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('获取推文详情失败，请检查网络连接');
+                    });
+            });
+        });
+    </script>
+</body>
+</html> 
